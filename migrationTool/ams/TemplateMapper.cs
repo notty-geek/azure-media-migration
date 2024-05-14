@@ -204,7 +204,6 @@ namespace AMSMigrate.Ams
             {
                 return (locator.StreamingLocatorId ?? Guid.Empty).ToString();
             }
-
             _logger.LogError("No locator found for asset {name}. locator id was used in template", asset.Data.Name);
             throw new InvalidOperationException($"No locator found for asset {asset.Data.Name}");
         }
