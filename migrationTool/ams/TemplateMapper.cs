@@ -86,8 +86,32 @@ namespace AMSMigrate.Ams
                 }
             }
             _logger.LogTrace("Template {template} expanded to {value}", template, expandedValue);
-            return expandedValue;
+//            return expandedValue;
+            return SanitizeResourceName(expandedValue);
         }
+
+        private string SanitizeResourceName(string name)
+            {
+                // Replace underscores and other disallowed characters, and convert to lowercase
+                var sanitized = name.Replace("_", "-").ToLower();
+
+                // Remove invalid hyphen placements and ensure the length constraints are met
+                sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
+                sanitized = Regex.Replace(sanitized, "--+", "-"); // Replace multiple consecutive hyphens with a single one
+
+                // Ensure the name starts with a letter or number
+                if (!char.IsLetterOrDigit(sanitized.FirstOrDefault()))
+                {
+                    sanitized = "a" + sanitized; // Prefix with 'a' if not starting with letter or number
+                }
+
+                // Check length constraints
+                if (sanitized.Length < 3) sanitized = sanitized.PadRight(3, 'a'); // Pad with 'a' if too short
+                if (sanitized.Length > 63) sanitized = sanitized.Substring(0, 63); // Trim if too long
+
+               _logger.LogTrace("Template expanded to {value}", sanitized);
+                return sanitized;
+            }
 
         /// <summary>
         /// Expand the template to a container/bucket name and path.
