@@ -94,7 +94,7 @@ namespace AMSMigrate.Ams
             {
                 // Replace underscores and other disallowed characters, and convert to lowercase
                 var sanitized = name.Replace("_", "-").ToLower();
-                var sanitized = name.Replace(".", "-").ToLower();
+                sanitized = name.Replace(".", "-").ToLower();
 
                 // Remove invalid hyphen placements and ensure the length constraints are met
                 sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
