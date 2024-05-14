@@ -91,14 +91,12 @@ namespace AMSMigrate.Ams
         }
 
         private string SanitizeResourceName(string name)
-                        {
-                // Replace underscores with hyphens, convert to lowercase
+            {
+                // Replace underscores and periods with hyphens, convert to lowercase
                 var sanitized = name.Replace("_", "-").ToLower();
-
-                // Replace periods with hyphens (using the already partially sanitized name)
                 sanitized = sanitized.Replace(".", "-");
 
-                // Remove invalid hyphen placements and ensure the length constraints are met
+                // Remove invalid hyphen placements: leading, trailing, and multiple consecutive hyphens
                 sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
                 sanitized = Regex.Replace(sanitized, "--+", "-"); // Replace multiple consecutive hyphens with a single one
 
@@ -108,13 +106,29 @@ namespace AMSMigrate.Ams
                     sanitized = "a" + sanitized; // Prefix with 'a' if not starting with letter or number
                 }
 
-                // Check length constraints
-                if (sanitized.Length < 3) sanitized = sanitized.PadRight(3, 'a'); // Pad with 'a' if too short
-                if (sanitized.Length > 63) sanitized = sanitized.Substring(0, 63); // Trim if too long
+                // Trim to maximum length first to handle cases close to length limits
+                if (sanitized.Length > 63)
+                {
+                    sanitized = sanitized.Substring(0, 63); // Trim if too long
+                }
+
+                // Ensure the name does not end with a hyphen
+                // This step is placed after trimming to handle cases where trimming may cause a hyphen at the end
+                if (sanitized.EndsWith("-"))
+                {
+                    sanitized = sanitized.TrimEnd('-');
+                }
+
+                // Check if the length is still below the minimum required after all transformations
+                if (sanitized.Length < 3)
+                {
+                    sanitized = sanitized.PadRight(3, 'a'); // Pad with 'a' if too short
+                }
 
                 _logger.LogTrace("Template expanded to {value}", sanitized);
                 return sanitized;
             }
+
 
         /// <summary>
         /// Expand the template to a container/bucket name and path.
