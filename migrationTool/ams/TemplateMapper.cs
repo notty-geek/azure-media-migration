@@ -30,6 +30,7 @@ namespace AMSMigrate.Ams
                     "AssetName",
                     "AlternateId",
                     "ContainerName",
+                    "StreamingUrl"
                     // "LocatorId",
                 }
             },
@@ -86,6 +87,13 @@ namespace AMSMigrate.Ams
                 }
             }
             _logger.LogTrace("Template {template} expanded to {value}", template, expandedValue);
+            // Log streaming URL specifically if it's part of the expanded template
+            if (template.Contains("${StreamingUrl}"))
+            {
+                var streamingUrl = await valueExtractor("StreamingUrl");
+                _logger.LogTrace("Streaming URL: {streamingUrl}", streamingUrl);
+            }
+
 //            return expandedValue;
             return SanitizeResourceName(expandedValue);
         }
@@ -175,6 +183,10 @@ namespace AMSMigrate.Ams
                         // case "LocatorId":
                         //    var locatorId = GetLocatorIdAsync(asset).Result;
                         //    return locatorId;
+                    case "StreamingUrl":
+                        return GetStreamingUrlAsync(asset).Result;
+
+
                 }
                 return null;
             });
@@ -223,6 +235,23 @@ namespace AMSMigrate.Ams
             }
             _logger.LogError("No locator found for asset {name}. locator id was used in template", asset.Data.Name);
             throw new InvalidOperationException($"No locator found for asset {asset.Data.Name}");
+        }
+
+
+        private async Task<string> GetStreamingUrlAsync(MediaAssetResource asset)
+        {
+            var locators = asset.GetStreamingLocatorsAsync();
+            await foreach (var locator in locators)
+            {
+                // Assuming a locator has a StreamingPath you can use to construct the URL
+                var paths = locator.GetStreamingPaths();
+                if (paths.Any())
+                {
+                    return paths.First().Paths.First();
+                }
+            }
+            _logger.LogError("No streaming URL found for asset {name}.", asset.Data.Name);
+            throw new InvalidOperationException($"No streaming URL found for asset {asset.Data.Name}");
         }
     }
 }
