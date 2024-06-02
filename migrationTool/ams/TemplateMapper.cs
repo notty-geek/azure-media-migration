@@ -237,7 +237,7 @@ namespace AMSMigrate.Ams
             await foreach (var locator in locators)
             {
                 // Assuming a locator has a StreamingPath you can use to construct the URL
-                var paths = locator.Data.StreamingPaths;
+                var paths = locator.StreamingPaths;
                 if (paths.Any())
                 {
                     return paths.First().Paths.First();
