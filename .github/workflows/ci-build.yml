@@ -137,13 +137,13 @@ jobs:
         run: |
           dotnet publish -c Release EncodingAndPackagingExample
 
-      # - name: Test
-      #   run: |
-      #     AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }} AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }} AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} TEST_DATA=`pwd`/test-data dotnet test -c Release --no-build EncodingAndPackagingExample
+      - name: Test
+        run: |
+         AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }} AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }} AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} TEST_DATA=`pwd`/test-data dotnet test -c Release --no-build EncodingAndPackagingExample
 
-      # - name: Build Container Image
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: EncodingAndPackagingExample
-      #     file: EncodingAndPackagingExample/EncodingAndPackagingTool.AzureFunction/Dockerfile
-      #     tags: amstestpublic.azurecr.io/azure-media-migration/encoding-and-packaging-example:${{ github.sha }}, amstestpublic.azurecr.io/azure-media-migration/encoding-and-packaging-example:latest
+      - name: Build Container Image
+        uses: docker/build-push-action@v4
+        with:
+         context: EncodingAndPackagingExample
+         file: EncodingAndPackagingExample/EncodingAndPackagingTool.AzureFunction/Dockerfile
+         tags: zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:${{ github.sha }}, zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:latest
