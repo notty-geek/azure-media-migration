@@ -73,14 +73,14 @@ namespace AMSMigrate.Ams
             return (true, null);
         }
 
-        public string ExpandTemplate(string template, Func<string, string?> valueExtractor)
+        public async Task<string> ExpandTemplate(string template, Func<string, Task<string?>> valueExtractor)
         {
             var expandedValue = template;
             var matches = _regEx.Matches(template);
             foreach (var match in matches.Reverse())
             {
                 var key = match.Groups["key"].Value;
-                var value = valueExtractor(key);
+                var value = await valueExtractor(key);
                 if (value != null)
                 {
                     expandedValue = expandedValue.Replace(match.Value, value);
@@ -94,58 +94,57 @@ namespace AMSMigrate.Ams
                 _logger.LogTrace("Streaming URL: {streamingUrl}", streamingUrl);
             }
 
-//            return expandedValue;
             return SanitizeResourceName(expandedValue);
         }
 
         private string SanitizeResourceName(string name)
+        {
+            // Replace underscores and periods with hyphens, convert to lowercase
+            var sanitized = name.Replace("_", "-").ToLower();
+            sanitized = sanitized.Replace(".", "-");
+
+            // Remove invalid hyphen placements: leading, trailing, and multiple consecutive hyphens
+            sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
+            sanitized = Regex.Replace(sanitized, "--+", "-"); // Replace multiple consecutive hyphens with a single one
+
+            // Ensure the name starts with a letter or number
+            if (!char.IsLetterOrDigit(sanitized.FirstOrDefault()))
             {
-                // Replace underscores and periods with hyphens, convert to lowercase
-                var sanitized = name.Replace("_", "-").ToLower();
-                sanitized = sanitized.Replace(".", "-");
-
-                // Remove invalid hyphen placements: leading, trailing, and multiple consecutive hyphens
-                sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
-                sanitized = Regex.Replace(sanitized, "--+", "-"); // Replace multiple consecutive hyphens with a single one
-
-                // Ensure the name starts with a letter or number
-                if (!char.IsLetterOrDigit(sanitized.FirstOrDefault()))
-                {
-                    sanitized = "a" + sanitized; // Prefix with 'a' if not starting with letter or number
-                }
-
-                // Trim to maximum length first to handle cases close to length limits
-                if (sanitized.Length > 63)
-                {
-                    sanitized = sanitized.Substring(0, 63); // Trim if too long
-                }
-
-                // Ensure the name does not end with a hyphen
-                // This step is placed after trimming to handle cases where trimming may cause a hyphen at the end
-                if (sanitized.EndsWith("-"))
-                {
-                    sanitized = sanitized.TrimEnd('-');
-                }
-
-                // Check if the length is still below the minimum required after all transformations
-                if (sanitized.Length < 3)
-                {
-                    sanitized = sanitized.PadRight(3, 'a'); // Pad with 'a' if too short
-                }
-
-                _logger.LogTrace("Template expanded to {value}", sanitized);
-                return sanitized;
+                sanitized = "a" + sanitized; // Prefix with 'a' if not starting with letter or number
             }
+
+            // Trim to maximum length first to handle cases close to length limits
+            if (sanitized.Length > 63)
+            {
+                sanitized = sanitized.Substring(0, 63); // Trim if too long
+            }
+
+            // Ensure the name does not end with a hyphen
+            // This step is placed after trimming to handle cases where trimming may cause a hyphen at the end
+            if (sanitized.EndsWith("-"))
+            {
+                sanitized = sanitized.TrimEnd('-');
+            }
+
+            // Check if the length is still below the minimum required after all transformations
+            if (sanitized.Length < 3)
+            {
+                sanitized = sanitized.PadRight(3, 'a'); // Pad with 'a' if too short
+            }
+
+            _logger.LogTrace("Template expanded to {value}", sanitized);
+            return sanitized;
+        }
 
 
         /// <summary>
         /// Expand the template to a container/bucket name and path.
         /// </summary>
         /// <returns>A tuple of container name and path prefix</returns>
-        public (string Container, string Prefix) ExpandPathTemplate(string template, Func<string, string?> extractor)
+        public (string Container, string Prefix) ExpandPathTemplate(string template, Func<string, Task<string?>> extractor)
         {
             string containerName;
-            var path = ExpandTemplate(template, extractor);
+            var path = ExpandTemplate(template, extractor).Result;
             var index = path.IndexOf('/');
             if (index == -1)
             {
@@ -168,7 +167,7 @@ namespace AMSMigrate.Ams
 
         public (string Container, string Prefix) ExpandAssetTemplate(MediaAssetResource asset, string template)
         {
-            return ExpandPathTemplate(template, key =>
+            return ExpandPathTemplate(template, async key =>
             {
                 switch (key)
                 {
@@ -180,13 +179,8 @@ namespace AMSMigrate.Ams
                         return asset.Data.Container;
                     case "AlternateId":
                         return asset.Data.AlternateId ?? asset.Data.Name;
-                        // case "LocatorId":
-                        //    var locatorId = GetLocatorIdAsync(asset).Result;
-                        //    return locatorId;
                     case "StreamingUrl":
-                        return GetStreamingUrlAsync(asset).Result;
-
-
+                        return await GetStreamingUrlAsync(asset);
                 }
                 return null;
             });
@@ -199,30 +193,30 @@ namespace AMSMigrate.Ams
                 switch (key)
                 {
                     case "ContainerName":
-                        return container.Name;
+                        return Task.FromResult<string?>(container.Name);
                 }
-                return null;
+                return Task.FromResult<string?>(null);
             });
         }
 
-        public string ExpandKeyTemplate(StreamingLocatorContentKey contentKey, string? template)
+        public async Task<string> ExpandKeyTemplate(StreamingLocatorContentKey contentKey, string? template)
         {
             if (template == null)
                 return contentKey.Id.ToString();
-            return ExpandTemplate(template, key =>
+            return await ExpandTemplate(template, key =>
             {
-                if (key == "KeyId") return contentKey.Id.ToString();
-                if (key == "PolicyName") return contentKey.PolicyName;
-                return null;
+                if (key == "KeyId") return Task.FromResult<string?>(contentKey.Id.ToString());
+                if (key == "PolicyName") return Task.FromResult<string?>(contentKey.PolicyName);
+                return Task.FromResult<string?>(null);
             });
         }
 
-        public string ExpandKeyUriTemplate(string uriTemplate, string keyId)
+        public async Task<string> ExpandKeyUriTemplate(string uriTemplate, string keyId)
         {
-            return ExpandTemplate(uriTemplate, key => key switch
+            return await ExpandTemplate(uriTemplate, key => key switch
             {
-                "KeyId" => keyId,
-                _ => null
+                "KeyId" => Task.FromResult<string?>(keyId),
+                _ => Task.FromResult<string?>(null)
             });
         }
 
@@ -237,14 +231,13 @@ namespace AMSMigrate.Ams
             throw new InvalidOperationException($"No locator found for asset {asset.Data.Name}");
         }
 
-
         private async Task<string> GetStreamingUrlAsync(MediaAssetResource asset)
         {
             var locators = asset.GetStreamingLocatorsAsync();
             await foreach (var locator in locators)
             {
                 // Assuming a locator has a StreamingPath you can use to construct the URL
-                var paths = locator.GetStreamingPaths();
+                var paths = locator.Data.StreamingPaths;
                 if (paths.Any())
                 {
                     return paths.First().Paths.First();
