@@ -3,6 +3,8 @@ using Azure.ResourceManager.Media.Models;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace AMSMigrate.Ams
 {
@@ -237,10 +239,13 @@ namespace AMSMigrate.Ams
             await foreach (var locator in locators)
             {
                 // Assuming a locator has a StreamingPath you can use to construct the URL
-                var paths = locator.StreamingPaths;
-                if (paths.Any())
+                if (locator.StreamingLocatorId != null)
                 {
-                    return paths.First().Paths.First();
+                    var paths = await locator.GetStreamingPathsAsync();
+                    if (paths.Value.Any())
+                    {
+                        return paths.Value.First().Paths.First();
+                    }
                 }
             }
             _logger.LogError("No streaming URL found for asset {name}.", asset.Data.Name);
