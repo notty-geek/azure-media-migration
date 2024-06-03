@@ -87,21 +87,22 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: PlaybackService/src/
-          tags: amstestpublic.azurecr.io/azure-media-migration/playback-service:${{ github.sha }}, amstestpublic.azurecr.io/azure-media-migration/playback-service:latest
+          tags: zoundio.azurecr.io/azure-media-migration/playback-service:${{ github.sha }}, zoundio.azurecr.io/azure-media-migration/playback-service:latest
+      
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
         if: ${{ github.event_name == 'push' }}
         with:
-          registry: amstestpublic.azurecr.io
-          username: amstestpublic
+          registry: zoundio.azurecr.io
+          username: zoundio
           password: ${{ secrets.AMSTESTPUBLIC_AZACR_PASSWORD }}
 
       - name: Push Container Image
         if: ${{ github.event_name == 'push' }}
         run: |
-          docker push amstestpublic.azurecr.io/azure-media-migration/playback-service:${{ github.sha }}
-          docker push amstestpublic.azurecr.io/azure-media-migration/playback-service:latest
+          docker push zoundio.azurecr.io/azure-media-migration/playback-service:${{ github.sha }}
+          docker push zoundio.azurecr.io/azure-media-migration/playback-service:latest
 
       # - name: Login Kubernets
       #   uses: azure/k8s-set-context@v1
