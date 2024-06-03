@@ -3,8 +3,6 @@ using Azure.ResourceManager.Media.Models;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace AMSMigrate.Ams
 {
@@ -32,7 +30,6 @@ namespace AMSMigrate.Ams
                     "AssetName",
                     "AlternateId",
                     "ContainerName",
-                    "StreamingUrl"
                     // "LocatorId",
                 }
             },
@@ -75,31 +72,25 @@ namespace AMSMigrate.Ams
             return (true, null);
         }
 
-        public async Task<string> ExpandTemplate(string template, Func<string, Task<string?>> valueExtractor)
+        public string ExpandTemplate(string template, Func<string, string?> valueExtractor)
         {
             var expandedValue = template;
             var matches = _regEx.Matches(template);
             foreach (var match in matches.Reverse())
             {
                 var key = match.Groups["key"].Value;
-                var value = await valueExtractor(key);
+                var value = valueExtractor(key);
                 if (value != null)
                 {
                     expandedValue = expandedValue.Replace(match.Value, value);
                 }
             }
             _logger.LogTrace("Template {template} expanded to {value}", template, expandedValue);
-            // Log streaming URL specifically if it's part of the expanded template
-            if (template.Contains("${StreamingUrl}"))
-            {
-                var streamingUrl = await valueExtractor("StreamingUrl");
-                _logger.LogTrace("Streaming URL: {streamingUrl}", streamingUrl);
-            }
-
             return SanitizeResourceName(expandedValue);
         }
 
-        private string SanitizeResourceName(string name)
+
+         private string SanitizeResourceName(string name)
         {
             // Replace underscores and periods with hyphens, convert to lowercase
             var sanitized = name.Replace("_", "-").ToLower();
@@ -138,15 +129,14 @@ namespace AMSMigrate.Ams
             return sanitized;
         }
 
-
         /// <summary>
         /// Expand the template to a container/bucket name and path.
         /// </summary>
         /// <returns>A tuple of container name and path prefix</returns>
-        public (string Container, string Prefix) ExpandPathTemplate(string template, Func<string, Task<string?>> extractor)
+        public (string Container, string Prefix) ExpandPathTemplate(string template, Func<string, string?> extractor)
         {
             string containerName;
-            var path = ExpandTemplate(template, extractor).Result;
+            var path = ExpandTemplate(template, extractor);
             var index = path.IndexOf('/');
             if (index == -1)
             {
@@ -169,7 +159,7 @@ namespace AMSMigrate.Ams
 
         public (string Container, string Prefix) ExpandAssetTemplate(MediaAssetResource asset, string template)
         {
-            return ExpandPathTemplate(template, async key =>
+            return ExpandPathTemplate(template, key =>
             {
                 switch (key)
                 {
@@ -181,8 +171,9 @@ namespace AMSMigrate.Ams
                         return asset.Data.Container;
                     case "AlternateId":
                         return asset.Data.AlternateId ?? asset.Data.Name;
-                    case "StreamingUrl":
-                        return await GetStreamingUrlAsync(asset);
+                        // case "LocatorId":
+                        //    var locatorId = GetLocatorIdAsync(asset).Result;
+                        //    return locatorId;
                 }
                 return null;
             });
@@ -195,30 +186,30 @@ namespace AMSMigrate.Ams
                 switch (key)
                 {
                     case "ContainerName":
-                        return Task.FromResult<string?>(container.Name);
+                        return container.Name;
                 }
-                return Task.FromResult<string?>(null);
+                return null;
             });
         }
 
-        public async Task<string> ExpandKeyTemplate(StreamingLocatorContentKey contentKey, string? template)
+        public string ExpandKeyTemplate(StreamingLocatorContentKey contentKey, string? template)
         {
             if (template == null)
                 return contentKey.Id.ToString();
-            return await ExpandTemplate(template, key =>
+            return ExpandTemplate(template, key =>
             {
-                if (key == "KeyId") return Task.FromResult<string?>(contentKey.Id.ToString());
-                if (key == "PolicyName") return Task.FromResult<string?>(contentKey.PolicyName);
-                return Task.FromResult<string?>(null);
+                if (key == "KeyId") return contentKey.Id.ToString();
+                if (key == "PolicyName") return contentKey.PolicyName;
+                return null;
             });
         }
 
-        public async Task<string> ExpandKeyUriTemplate(string uriTemplate, string keyId)
+        public string ExpandKeyUriTemplate(string uriTemplate, string keyId)
         {
-            return await ExpandTemplate(uriTemplate, key => key switch
+            return ExpandTemplate(uriTemplate, key => key switch
             {
-                "KeyId" => Task.FromResult<string?>(keyId),
-                _ => Task.FromResult<string?>(null)
+                "KeyId" => keyId,
+                _ => null
             });
         }
 
@@ -229,27 +220,9 @@ namespace AMSMigrate.Ams
             {
                 return (locator.StreamingLocatorId ?? Guid.Empty).ToString();
             }
+
             _logger.LogError("No locator found for asset {name}. locator id was used in template", asset.Data.Name);
             throw new InvalidOperationException($"No locator found for asset {asset.Data.Name}");
-        }
-
-        private async Task<string> GetStreamingUrlAsync(MediaAssetResource asset)
-        {
-            var locators = asset.GetStreamingLocatorsAsync();
-            await foreach (var locator in locators)
-            {
-                // Assuming a locator has a StreamingPath you can use to construct the URL
-                if (locator.StreamingLocatorId != null)
-                {
-                    var paths = await locator.GetStreamingPathsAsync();
-                    if (paths.Value.Any())
-                    {
-                        return paths.Value.First().Paths.First();
-                    }
-                }
-            }
-            _logger.LogError("No streaming URL found for asset {name}.", asset.Data.Name);
-            throw new InvalidOperationException($"No streaming URL found for asset {asset.Data.Name}");
         }
     }
 }
