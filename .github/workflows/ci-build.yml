@@ -150,4 +150,5 @@ jobs:
         with:
          context: EncodingAndPackagingExample
          file: EncodingAndPackagingExample/EncodingAndPackagingTool.AzureFunction/Dockerfile
+         push: true
          tags: zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:${{ github.sha }}, zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:latest
