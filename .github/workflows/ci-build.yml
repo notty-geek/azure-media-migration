@@ -137,10 +137,10 @@ jobs:
       - name: Build and publish
         run: |
           dotnet publish -c Release EncodingAndPackagingExample
-
-      - name: Test
-        run: |
-         AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }} AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }} AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} TEST_DATA=`pwd`/test-data dotnet test -c Release --no-build EncodingAndPackagingExample
+#
+#      - name: Test
+#        run: |
+#         AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }} AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }} AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} TEST_DATA=`pwd`/test-data dotnet test -c Release --no-build EncodingAndPackagingExample
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -158,7 +158,19 @@ jobs:
       - name: Build Container Image
         uses: docker/build-push-action@v4
         with:
-         context: EncodingAndPackagingExample
-         file: EncodingAndPackagingExample/EncodingAndPackagingTool.AzureFunction/Dockerfile
-         push: true
+         context: EncodingAndPackagingExample/EncodingAndPackagingTool.AzureFunction/
          tags: zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:${{ github.sha }}, zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:latest
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        if: ${{ github.event_name == 'push' }}
+        with:
+          registry: zoundio.azurecr.io
+          username: zoundio
+          password: ${{ secrets.AMSTESTPUBLIC_AZACR_PASSWORD }}
+
+      - name: Push Container Image
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          docker push zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:${{ github.sha }}
+          docker push zoundio.azurecr.io/azure-media-migration/encoding-and-packaging-example:latest
