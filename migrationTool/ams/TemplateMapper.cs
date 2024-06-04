@@ -93,7 +93,7 @@ namespace AMSMigrate.Ams
          private string SanitizeResourceName(string name)
         {
             // Replace underscores and periods with hyphens, convert to lowercase
-            var sanitized = name.Replace(" ", "-").Replace("_", "-").Replace(".", "-").ToLower();
+            var sanitized = name.Replace(" ", "-").Replace("_", "-").Replace(":", "-").Replace(".", "-").ToLower();
 
             // Remove invalid hyphen placements: leading, trailing, and multiple consecutive hyphens
             sanitized = Regex.Replace(sanitized, "^-+|-+$", ""); // Remove leading and trailing hyphens
