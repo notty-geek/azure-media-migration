@@ -86,7 +86,7 @@ namespace AMSMigrate.Ams
                 }
             }
             _logger.LogTrace("Template {template} expanded to {value}", template, expandedValue);
-            return SanitizeResourceName(expandedValue);
+            return expandedValue
         }
 
 

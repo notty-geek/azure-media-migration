@@ -39,7 +39,7 @@ namespace AMSMigrate.Azure
 
         public Uri GetDestinationUri(string container, string fileName)
         {
-            return new Uri(_blobServiceClient.Uri, $"/{container}/{fileName}");
+            return new Uri(_blobServiceClient.Uri, $"/public-assets/{container}/{fileName}");
         }
 
         public async Task UploadAsync(
